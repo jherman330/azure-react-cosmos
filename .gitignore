@@ -1,0 +1,41 @@
+# Azure / environment
+.azure
+
+# .NET build and tooling (solution-wide; src/api/ has its own detailed .gitignore)
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+project.lock.json
+project.fragment.lock.json
+artifacts/
+[Dd]ebug/
+[Rr]elease/
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+
+# Test and coverage
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+coverage*.json
+coverage*.xml
+*.coverage
+*.coveragexml
+
+# Local and secrets (optional; uncomment if you use local overrides)
+# appsettings.Development.json
+appsettings.*.local.json
+# **/secrets.json
+
+# Infra: local parameter overrides (may contain secrets; use env vars in pipelines instead)
+infra/main.parameters.*.local.json
+infra/**/*.parameters.local.json

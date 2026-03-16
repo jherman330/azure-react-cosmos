@@ -1,0 +1,15 @@
+node_modules
+dist
+build
+coverage
+*.lock
+.git
+.azure
+.azdo
+.devcontainer
+infra
+docs
+LICENSE
+NOTICE.txt
+README.md
+openapi.yaml
