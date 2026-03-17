@@ -110,9 +110,9 @@ The Azure Developer CLI includes many other commands to help with your Azure dev
 
 This template creates a [managed identity](https://docs.microsoft.com/azure/active-directory/managed-identities-azure-resources/overview) for your app inside your Azure Active Directory tenant, and it is used to authenticate your app with Azure and other services that support Azure AD authentication like Cosmos DB and Key Vault via access policies and role assignments. You will see principalId referenced in the infrastructure as code files, that refers to the id of the currently logged in Azure Developer CLI user, which will be granted access policies and permissions to run the application locally. To view your managed identity in the Azure Portal, follow these [steps](https://docs.microsoft.com/azure/active-directory/managed-identities-azure-resources/how-to-view-managed-identity-service-principal-portal).
 
-### Key Vault
+### Key Vault and secrets management
 
-This template uses [Azure Key Vault](https://docs.microsoft.com/azure/key-vault/general/overview) to securely store secrets such as Application Insights connection strings. Key Vault is a cloud service for securely storing and accessing secrets (API keys, passwords, certificates, cryptographic keys) and makes it simple to give other Azure services access to them. The application uses managed identity to authenticate with Cosmos DB directly, eliminating the need to store database connection strings. As you continue developing your solution, you may add as many secrets to your Key Vault as you require.
+This template uses [Azure Key Vault](https://docs.microsoft.com/azure/key-vault/general/overview) for secrets in deployed environments. The API uses **managed identity** to read secrets from Key Vault at runtime (no connection strings or keys in app settings or code). For **local development**, use [dotnet user-secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) so sensitive values stay off the repo. No secrets are stored in `appsettings.json` or committed to source control. See [docs/secrets-management.md](docs/secrets-management.md) for patterns, user-secrets usage, and Key Vault soft-delete/purge-protection recommendations.
 
 ## Reporting Issues and Feedback
 

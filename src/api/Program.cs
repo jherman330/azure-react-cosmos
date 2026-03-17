@@ -16,10 +16,28 @@
 // Application services below as those layers are implemented.
 // =============================================================================
 
+using Azure.Identity;
+using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using Todo.Api.Domain.Entities;
 using Todo.Api.Infrastructure.Configuration;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// AC-FOUNDATION-009.3: Local development uses dotnet user-secrets for sensitive values.
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets(typeof(Program).Assembly, optional: true);
+}
+
+// AC-FOUNDATION-009.1, 009.2: Key Vault only in non-Development (Azure). In Development we use user-secrets only, even if AZURE_KEY_VAULT_ENDPOINT is set.
+if (!builder.Environment.IsDevelopment())
+{
+    var keyVaultEndpoint = Environment.GetEnvironmentVariable("AZURE_KEY_VAULT_ENDPOINT");
+    if (!string.IsNullOrEmpty(keyVaultEndpoint) && Uri.TryCreate(keyVaultEndpoint, UriKind.Absolute, out var keyVaultUri))
+    {
+        builder.Configuration.AddAzureKeyVault(keyVaultUri, new DefaultAzureCredential());
+    }
+}
 
 // TODO: Register Application services
 
