@@ -1,23 +1,26 @@
 #!/bin/sh
-# Script to install git hooks (pre-commit, commit-msg, etc.)
+# Install native Git hooks by copying the repository template into .git/hooks.
+# No third-party hook managers (Husky, etc.). Run from repository root.
 
-# Install husky hooks in frontend if npm is available
-echo "Installing pre-commit hooks..."
+set -e
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$REPO_ROOT"
 
-FRONTEND_DIR="csharp-cosmos/src/web"
+TEMPLATE="$REPO_ROOT/scripts/pre-commit"
+HOOK="$REPO_ROOT/.git/hooks/pre-commit"
 
-if [ -d "$FRONTEND_DIR" ] && [ -f "$FRONTEND_DIR/package.json" ]; then
-  echo "Installing Husky in frontend..."
-  cd "$FRONTEND_DIR"
-  npm install husky --save-dev
-  npx husky install ../../.husky
-  cd - > /dev/null
-  echo "Husky hooks installed successfully."
+if [ ! -f "$TEMPLATE" ]; then
+  echo "Template not found: scripts/pre-commit"
+  exit 1
 fi
 
-echo "Pre-commit hooks are ready."
+echo "Installing pre-commit hook (native Git)..."
+cp "$TEMPLATE" "$HOOK"
+chmod +x "$HOOK"
+echo "Pre-commit hook installed at .git/hooks/pre-commit."
 echo ""
-echo "Available hooks:"
-echo "  - pre-commit: Runs linting and type checks before committing"
+echo "The hook runs on every 'git commit'. It runs:"
+echo "  - FastLocal backend tests (when src/api/ changes)"
+echo "  - Frontend typecheck + ESLint (when src/web/ changes)"
 echo ""
-echo "To bypass hooks if needed: git commit -n"
+echo "To bypass in emergencies: git commit --no-verify"

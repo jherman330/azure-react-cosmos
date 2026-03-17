@@ -75,6 +75,14 @@ This template provisions resources to an Azure subscription that you will select
 
 This template is structured to follow the [Azure Developer CLI](https://aka.ms/azure-dev/overview). You can learn more about `azd` architecture in [the official documentation](https://learn.microsoft.com/azure/developer/azure-developer-cli/make-azd-compatible?pivots=azd-create#understand-the-azd-architecture).
 
+### Developer setup: pre-commit hooks
+
+Pre-commit hooks catch quality issues before you push (FastLocal backend tests, frontend typecheck and ESLint). Uses native Git hooks only (no Husky). From the repo root:
+
+- **Quick start:** `bash scripts/install-hooks.sh` (Windows: `scripts\install-hooks.cmd`)
+
+See [docs/pre-commit-hooks.md](docs/pre-commit-hooks.md) for installation, usage, and troubleshooting.
+
 ### Next Steps
 
 At this point, you have an application deployed on Azure. But there is much more that the Azure Developer CLI can do. These next steps will introduce you to additional commands that will make creating applications on Azure much easier. Using the Azure Developer CLI, you can setup your pipelines, monitor your application, test and debug locally.

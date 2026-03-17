@@ -1,22 +1,24 @@
 @echo off
-REM Batch script to install git hooks (pre-commit, commit-msg, etc.)
+REM Install native Git hooks by copying the repository template into .git/hooks.
+REM No third-party hook managers (Husky, etc.). Run from repository root.
 
-echo Installing pre-commit hooks...
+set "REPO_ROOT=%~dp0.."
+cd /d "%REPO_ROOT%"
 
-set "FRONTEND_DIR=csharp-cosmos\src\web"
+set "TEMPLATE=%REPO_ROOT%\scripts\pre-commit"
+set "HOOK=%REPO_ROOT%\.git\hooks\pre-commit"
 
-if exist "%FRONTEND_DIR%\package.json" (
-    echo Installing Husky in frontend...
-    cd "%FRONTEND_DIR%"
-    call npm install husky --save-dev
-    call npx husky install ..\..\.husky
-    cd ..\..\..
-    echo Husky hooks installed successfully.
+if not exist "%TEMPLATE%" (
+    echo Template not found: scripts\pre-commit
+    exit /b 1
 )
 
-echo Pre-commit hooks are ready.
+echo Installing pre-commit hook (native Git)...
+copy /Y "%TEMPLATE%" "%HOOK%" >nul
+echo Pre-commit hook installed at .git\hooks\pre-commit.
 echo.
-echo Available hooks:
-echo   - pre-commit: Runs linting and type checks before committing
+echo The hook runs on every 'git commit'. It runs:
+echo   - FastLocal backend tests (when src/api/ changes)
+echo   - Frontend typecheck + ESLint (when src/web/ changes)
 echo.
-echo To bypass hooks if needed: git commit -n
+echo To bypass in emergencies: git commit --no-verify

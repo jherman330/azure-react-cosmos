@@ -1,0 +1,46 @@
+#!/bin/sh
+# Pre-commit quality gate: FastLocal tests, TypeScript typecheck, ESLint.
+# This file is the repository template. Install scripts copy it to .git/hooks/pre-commit.
+# Skip when not in a Git commit context (e.g. CI may run validations separately).
+
+if [ -n "$CI" ]; then
+  echo "CI detected; skipping pre-commit hook."
+  exit 0
+fi
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" || exit 1
+
+STAGED_FILES="$(git diff --cached --name-only)"
+
+backend_changed() {
+  echo "$STAGED_FILES" | grep -qE '^src/api/'
+}
+
+frontend_changed() {
+  echo "$STAGED_FILES" | grep -qE '^src/web/'
+}
+
+FAILED=0
+
+if backend_changed; then
+  echo "[pre-commit] Validating backend: FastLocal tests..."
+  if ! "$REPO_ROOT/scripts/run-fastlocal-tests.sh"; then
+    echo "[pre-commit] Backend FastLocal tests failed. Fix errors or use git commit --no-verify to bypass."
+    FAILED=1
+  fi
+fi
+
+if frontend_changed; then
+  echo "[pre-commit] Validating frontend: TypeScript typecheck..."
+  if ! "$REPO_ROOT/scripts/run-frontend-checks.sh"; then
+    echo "[pre-commit] Frontend validation failed. Fix errors or use git commit --no-verify to bypass."
+    FAILED=1
+  fi
+fi
+
+if [ $FAILED -ne 0 ]; then
+  exit 1
+fi
+
+exit 0
