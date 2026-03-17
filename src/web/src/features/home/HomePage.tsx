@@ -1,6 +1,6 @@
 import { FC } from 'react';
 import { Stack, Text } from '@fluentui/react';
-import { stackPadding } from '../ux/styles';
+import { stackPadding } from '../../styles/styles';
 
 const HomePage: FC = () => {
     return (
