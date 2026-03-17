@@ -16,23 +16,22 @@
 // Application services below as those layers are implemented.
 // =============================================================================
 
-using Azure.Identity;
-using Microsoft.Azure.Cosmos;
+using Todo.Api.Domain.Entities;
+using Todo.Api.Infrastructure.Configuration;
 
-var credential = new DefaultAzureCredential();
 var builder = WebApplication.CreateBuilder(args);
 
-// TODO: Register Infrastructure services — see Infrastructure/Configuration
 // TODO: Register Application services
 
-// Cosmos client: used when AZURE_COSMOS_* is set (e.g. by infra). Add your own repositories and wire them here.
-builder.Services.AddSingleton(_ => new CosmosClient(builder.Configuration["AZURE_COSMOS_ENDPOINT"], credential, new CosmosClientOptions()
+// Cosmos DB client (session consistency, RU monitoring) and repository pattern — see Domain/Repositories/IRepository.cs
+builder.Services.AddCosmosDbClient(builder.Configuration);
+// AC-FOUNDATION-002.7: at least one repository registered and injectable when Cosmos is configured
+if (!string.IsNullOrEmpty(builder.Configuration["AZURE_COSMOS_ENDPOINT"]))
 {
-    SerializerOptions = new CosmosSerializationOptions
-    {
-        PropertyNamingPolicy = CosmosPropertyNamingPolicy.CamelCase
-    }
-}));
+    var db = builder.Configuration["AZURE_COSMOS_DATABASE_NAME"] ?? "App";
+    var container = builder.Configuration["AZURE_COSMOS_CONTAINER_NAME"] ?? "Items";
+    builder.Services.AddCosmosDbRepository<Item>(db, container, partitionKeyPath: "/id");
+}
 builder.Services.AddCors();
 builder.Services.AddApplicationInsightsTelemetry(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
