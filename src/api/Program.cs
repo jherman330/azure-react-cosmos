@@ -41,6 +41,9 @@ if (!builder.Environment.IsDevelopment())
 
 // TODO: Register Application services
 
+// AC-FOUNDATION-010.1–010.4, 010.7: IDistributedCache (in-memory in Development, Redis in staging/prod) with 2s timeout and graceful degradation
+builder.Services.AddDistributedCache(builder.Configuration, builder.Environment);
+
 // Cosmos DB client (session consistency, RU monitoring) and repository pattern — see Domain/Repositories/IRepository.cs
 builder.Services.AddCosmosDbClient(builder.Configuration);
 // AC-FOUNDATION-002.7: at least one repository registered and injectable when Cosmos is configured
