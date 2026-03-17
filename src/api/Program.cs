@@ -44,6 +44,9 @@ if (!builder.Environment.IsDevelopment())
 // AC-FOUNDATION-010.1–010.4, 010.7: IDistributedCache (in-memory in Development, Redis in staging/prod) with 2s timeout and graceful degradation
 builder.Services.AddDistributedCache(builder.Configuration, builder.Environment);
 
+// AC-FOUNDATION-011: HTTP resilience (retry, circuit breaker, timeout) for outbound calls. Config: Resilience:Http.
+builder.Services.AddHttpResilience(builder.Configuration);
+
 // Cosmos DB client (session consistency, RU monitoring) and repository pattern — see Domain/Repositories/IRepository.cs
 builder.Services.AddCosmosDbClient(builder.Configuration);
 // AC-FOUNDATION-002.7: at least one repository registered and injectable when Cosmos is configured
@@ -79,4 +82,8 @@ app.UseStaticFiles(new StaticFileOptions{
 
 app.MapGet("/", () => Results.Ok("OK"));
 app.MapGet("/health", () => Results.Ok());
+
+// AC-FOUNDATION-011.7: Initialize resilience event logging (retry, circuit breaker, timeout).
+Todo.Api.Infrastructure.Resilience.ResilienceLogging.Initialize(app.Services.GetRequiredService<ILoggerFactory>());
+
 app.Run();
