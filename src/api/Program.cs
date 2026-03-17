@@ -41,6 +41,11 @@ if (!builder.Environment.IsDevelopment())
 
 // TODO: Register Application services
 
+// AC-FOUNDATION-003: JWT bearer authentication with Microsoft Entra ID; 401/403 standardized responses; Admin role policy
+builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<Todo.Api.Application.Services.ICurrentUserService, Todo.Api.Infrastructure.Identity.CurrentUserService>();
+
 // AC-FOUNDATION-010.1–010.4, 010.7: IDistributedCache (in-memory in Development, Redis in staging/prod) with 2s timeout and graceful degradation
 builder.Services.AddDistributedCache(builder.Configuration, builder.Environment);
 
@@ -69,6 +74,10 @@ app.UseCors(policy =>
     policy.AllowAnyMethod();
 });
 
+// AC-FOUNDATION-003: Authentication and authorization middleware (JWT validation, role checks)
+app.UseAuthentication();
+app.UseAuthorization();
+
 // Swagger UI
 app.UseSwaggerUI(options => {
     options.SwaggerEndpoint("./openapi.yaml", "v1");
@@ -80,8 +89,13 @@ app.UseStaticFiles(new StaticFileOptions{
     ServeUnknownFileTypes = true,
 });
 
-app.MapGet("/", () => Results.Ok("OK"));
-app.MapGet("/health", () => Results.Ok());
+// AC-FOUNDATION-003.8: Health and root ping remain unauthenticated for orchestrator/monitoring and simple uptime checks
+app.MapGet("/health", () => Results.Ok()).AllowAnonymous();
+app.MapGet("/health/live", () => Results.Ok()).AllowAnonymous();
+app.MapGet("/health/ready", () => Results.Ok()).AllowAnonymous();
+app.MapGet("/", () => Results.Ok("OK")).AllowAnonymous();
+
+// Protected API endpoints: add .RequireAuthorization() or .RequireAuthorization("Admin") when adding authenticated routes (AC-FOUNDATION-003.4, 003.5)
 
 // AC-FOUNDATION-011.7: Initialize resilience event logging (retry, circuit breaker, timeout).
 Todo.Api.Infrastructure.Resilience.ResilienceLogging.Initialize(app.Services.GetRequiredService<ILoggerFactory>());

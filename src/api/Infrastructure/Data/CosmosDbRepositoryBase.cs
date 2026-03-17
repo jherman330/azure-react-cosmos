@@ -1,5 +1,7 @@
 using System.Net;
+using System.Security.Claims;
 using Microsoft.Azure.Cosmos;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Todo.Api.Domain.Entities;
 using Todo.Api.Domain.Exceptions;
@@ -10,20 +12,24 @@ namespace Todo.Api.Infrastructure.Data;
 /// <summary>
 /// Base Cosmos DB repository: CRUD, query, ETag handling, audit fields (AC-FOUNDATION-002.2–002.6).
 /// All methods are async-only. Request charge is logged for RU monitoring.
+/// CreatedBy/UpdatedBy use the standardized audit identity: oid (Object ID) primary, fallback sub (AC-FOUNDATION-003.7).
 /// </summary>
 public sealed class CosmosDbRepositoryBase<T> : IRepository<T> where T : class, IDomainEntity
 {
     private readonly Container _container;
     private readonly ILogger<CosmosDbRepositoryBase<T>> _logger;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
 
     public CosmosDbRepositoryBase(
         CosmosClient client,
         string databaseId,
         string containerId,
         string partitionKeyPath,
-        ILogger<CosmosDbRepositoryBase<T>> logger)
+        ILogger<CosmosDbRepositoryBase<T>> logger,
+        IHttpContextAccessor? httpContextAccessor = null)
     {
         _logger = logger;
+        _httpContextAccessor = httpContextAccessor;
         _container = client.GetContainer(databaseId, containerId);
     }
 
@@ -134,15 +140,29 @@ public sealed class CosmosDbRepositoryBase<T> : IRepository<T> where T : class, 
         var now = DateTimeOffset.UtcNow;
         auditable.CreatedAt = now;
         auditable.UpdatedAt = now;
-        // CreatedBy/UpdatedBy can be set by caller or from IHttpContextAccessor in app code
+        var userId = GetCurrentUserId();
+        if (!string.IsNullOrEmpty(userId))
+        {
+            auditable.CreatedBy = userId;
+            auditable.UpdatedBy = userId;
+        }
     }
 
-    /// <summary>Sets only UpdatedAt. Never overwrites CreatedAt or CreatedBy (AC-FOUNDATION-002.5).</summary>
+    /// <summary>Sets only UpdatedAt and UpdatedBy. Never overwrites CreatedAt or CreatedBy (AC-FOUNDATION-002.5).</summary>
     private void PopulateAuditOnUpdate(T entity)
     {
         if (entity is not IAuditableEntity auditable) return;
         auditable.UpdatedAt = DateTimeOffset.UtcNow;
+        var userId = GetCurrentUserId();
+        if (!string.IsNullOrEmpty(userId))
+            auditable.UpdatedBy = userId;
     }
+
+    // Audit identity: oid (Object ID) primary, fallback sub — must match CurrentUserService and docs.
+    private string? GetCurrentUserId() =>
+        _httpContextAccessor?.HttpContext?.User?.FindFirstValue("oid")
+        ?? _httpContextAccessor?.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier)
+        ?? _httpContextAccessor?.HttpContext?.User?.FindFirstValue("sub");
 
     private ItemRequestOptions? BuildRequestOptionsForUpdate(T entity)
     {

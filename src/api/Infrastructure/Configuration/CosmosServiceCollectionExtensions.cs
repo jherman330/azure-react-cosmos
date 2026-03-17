@@ -1,4 +1,5 @@
 using Azure.Identity;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,7 +56,8 @@ public static class CosmosServiceCollectionExtensions
         {
             var client = sp.GetRequiredService<CosmosClient>();
             var logger = sp.GetRequiredService<ILogger<CosmosDbRepositoryBase<T>>>();
-            return new CosmosDbRepositoryBase<T>(client, databaseId, containerId, partitionKeyPath, logger);
+            var httpContextAccessor = sp.GetService<IHttpContextAccessor>();
+            return new CosmosDbRepositoryBase<T>(client, databaseId, containerId, partitionKeyPath, logger, httpContextAccessor);
         });
         return services;
     }
