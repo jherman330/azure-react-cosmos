@@ -29,6 +29,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Frontend tests
+        run: |
+          cd src/web
+          npm ci
+          npx vitest run
+
       - name: Build and test
         run: |
           dotnet restore src/api/Todo.Api.sln
