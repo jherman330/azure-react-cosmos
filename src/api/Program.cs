@@ -87,3 +87,6 @@ app.MapGet("/health", () => Results.Ok());
 Todo.Api.Infrastructure.Resilience.ResilienceLogging.Initialize(app.Services.GetRequiredService<ILoggerFactory>());
 
 app.Run();
+
+// Expose for WebApplicationFactory in integration tests (AC-FOUNDATION-012.3).
+public partial class Program { }

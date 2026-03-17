@@ -29,6 +29,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Build and test
+        run: |
+          dotnet restore src/api/Todo.Api.sln
+          dotnet build src/api/Todo.Api.sln --no-restore -c Release
+          dotnet test src/api/Todo.Api.sln --no-build -c Release --verbosity normal
+
       - name: Install azd
         uses: Azure/setup-azd@v2
 
