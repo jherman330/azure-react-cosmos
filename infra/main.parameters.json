@@ -16,6 +16,12 @@
     },
     "apimSku": {
       "value": "${APIM_SKU=Consumption}"
+    },
+    "appServicePlanSku": {
+      "value": { "name": "B1", "tier": "Basic", "capacity": 1 }
+    },
+    "redisSku": {
+      "value": "Basic"
     }
   }
 }

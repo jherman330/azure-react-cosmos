@@ -1,244 +1,191 @@
+// Main Bicep orchestration - coordinates all resource deployments per AC-FOUNDATION-019.1.
+// Uses abbreviations.json for naming; deploys App Service (API), Cosmos DB, Key Vault, Redis,
+// Application Insights, Static Web Apps, RBAC, and optional APIM.
+
 targetScope = 'subscription'
 
 @minLength(1)
 @maxLength(64)
-@description('Name of the the environment which is used to generate a short unique hash used in all resources.')
+@description('Name of the environment used to generate a short unique hash for all resources.')
 param environmentName string
 
 @minLength(1)
-@description('Primary location for all resources')
+@description('Primary location for all resources.')
 param location string
 
-// Optional parameters to override the default azd resource naming conventions. Update the main.parameters.json file to provide values. e.g.,:
-// "resourceGroupName": {
-//      "value": "myGroupName"
-// }
-param apiServiceName string = ''
-param applicationInsightsDashboardName string = ''
-param applicationInsightsName string = ''
-param appServicePlanName string = ''
-param cosmosAccountName string = ''
-param keyVaultName string = ''
-param logAnalyticsName string = ''
-param resourceGroupName string = ''
-param webServiceName string = ''
-param apimServiceName string = ''
-
-@description('Flag to use Azure API Management to mediate the calls between the Web frontend and the backend API')
-param useAPIM bool = false
-
-@description('API Management SKU to use if APIM is enabled')
-param apimSku string = 'Consumption'
-
-@description('Id of the user or app to assign application roles')
+@description('Principal ID of the user or app to assign application roles (e.g. for Key Vault secret seeding).')
 param principalId string = ''
 
-var abbrs = loadJsonContent('./abbreviations.json')
-var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
-var tags = { 'azd-env-name': environmentName }
+// Optional overrides for resource names (set in main.parameters.json or env-specific parameter files)
+param resourceGroupName string = ''
+param applicationInsightsName string = ''
+param logAnalyticsName string = ''
+param keyVaultName string = ''
+param cosmosAccountName string = ''
+param appServiceName string = ''
+param redisName string = ''
+param staticWebAppName string = ''
+param apimServiceName string = ''
 
-// Organize resources in a resource group
+@description('Use Azure API Management to mediate calls between frontend and backend API.')
+param useAPIM bool = false
+
+@description('API Management SKU when APIM is enabled (e.g. Consumption, Developer).')
+param apimSku string = 'Consumption'
+
+@description('App Service Plan SKU: B1 for dev, S1 for staging/prod.')
+param appServicePlanSku object = { name: 'B1', tier: 'Basic', capacity: 1 }
+
+@description('Redis SKU: Basic for dev, Standard for staging/prod.')
+param redisSku string = 'Basic'
+
+var abbrs = loadJsonContent('./abbreviations.json')
+var tags = {
+  'azd-env-name': environmentName
+  Environment: environmentName
+  Application: 'todo-csharp-cosmos-sql'
+  ManagedBy: 'bicep'
+}
+
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
   location: location
   tags: tags
 }
 
-// The application frontend
-module web './app/web-appservice-avm.bicep' = {
-  name: 'web'
+// Application Insights and Log Analytics (no dependencies)
+module monitoring './modules/app-insights.bicep' = {
+  name: 'monitoring'
   scope: rg
   params: {
-    name: !empty(webServiceName) ? webServiceName : '${abbrs.webSitesAppService}web-${resourceToken}'
+    environmentName: environmentName
     location: location
     tags: tags
-    appServicePlanId: appServicePlan.outputs.resourceId
-    appInsightResourceId: monitoring.outputs.applicationInsightsResourceId
-    linuxFxVersion: 'node|20-lts'
+    applicationInsightsName: !empty(applicationInsightsName) ? applicationInsightsName : ''
+    logAnalyticsName: !empty(logAnalyticsName) ? logAnalyticsName : ''
   }
 }
 
-// The application backend
-module api './app/api-appservice-avm.bicep' = {
-  name: 'api'
+// Key Vault with RBAC (no dependency on App Service)
+module keyVault './modules/key-vault.bicep' = {
+  name: 'keyvault'
   scope: rg
   params: {
-    name: !empty(apiServiceName) ? apiServiceName : '${abbrs.webSitesAppService}api-${resourceToken}'
+    environmentName: environmentName
     location: location
     tags: tags
-    kind: 'app'
-    appServicePlanId: appServicePlan.outputs.resourceId
-    siteConfig: {
-      alwaysOn: true
-      linuxFxVersion: 'dotnetcore|8.0'
-    }
-    appSettings: {
-      AZURE_KEY_VAULT_ENDPOINT: keyVault.outputs.uri
-      AZURE_COSMOS_DATABASE_NAME: cosmos.outputs.databaseName
-      AZURE_COSMOS_ENDPOINT: cosmos.outputs.endpoint
-      API_ALLOW_ORIGINS: web.outputs.SERVICE_WEB_URI
-      SCM_DO_BUILD_DURING_DEPLOYMENT: false
-    }
-    appInsightResourceId: monitoring.outputs.applicationInsightsResourceId
-    allowedOrigins: [ web.outputs.SERVICE_WEB_URI ]
-  }
-}
-
-// Give the API access to KeyVault
-module accessKeyVault 'br/public:avm/res/key-vault/vault:0.5.1' = {
-  name: 'accesskeyvault'
-  scope: rg
-  params: {
-    name: keyVault.outputs.name
-    enableRbacAuthorization: false
-    enableVaultForDeployment: false
-    enableVaultForTemplateDeployment: false
+    keyVaultName: !empty(keyVaultName) ? keyVaultName : ''
     enablePurgeProtection: false
-    sku: 'standard'
-    accessPolicies: [
-      {
-        objectId: principalId
-        permissions: {
-          secrets: [ 'get', 'list' ]
-        }
-      }
-      {
-        objectId: api.outputs.SERVICE_API_IDENTITY_PRINCIPAL_ID
-        permissions: {
-          secrets: [ 'get', 'list' ]
-        }
-      }
-    ]
   }
 }
 
-// The application database
-module cosmos './app/db-avm.bicep' = {
+// Cosmos DB (no principalId yet; role assignment in separate step)
+module cosmos './modules/cosmos-db.bicep' = {
   name: 'cosmos'
   scope: rg
   params: {
-    accountName: !empty(cosmosAccountName) ? cosmosAccountName : '${abbrs.documentDBDatabaseAccounts}${resourceToken}'
+    environmentName: environmentName
     location: location
     tags: tags
-    principalId: principalId
-    backupPolicyType: 'Periodic'
+    cosmosAccountName: !empty(cosmosAccountName) ? cosmosAccountName : ''
+    principalId: '' // Set in cosmos-role-assignment after API exists
   }
 }
 
-// Give the API access to Cosmos using a separate role assignment
-module apiCosmosRoleAssignment './app/cosmos-role-assignment.bicep' = {
+// Static Web App for React frontend (deploy before App Service so CORS can reference its hostname)
+module staticWebApp './modules/static-web-app.bicep' = {
+  name: 'staticwebapp'
+  scope: rg
+  params: {
+    environmentName: environmentName
+    location: location
+    tags: tags
+    appLocation: 'src/web'
+    outputLocation: 'dist'
+    staticWebAppName: !empty(staticWebAppName) ? staticWebAppName : ''
+  }
+}
+
+// App Service Plan + API App Service (depends on Key Vault, App Insights, Cosmos, Static Web App for CORS)
+module appService './modules/app-service.bicep' = {
+  name: 'api-appservice'
+  scope: rg
+  params: {
+    environmentName: environmentName
+    location: location
+    tags: tags
+    applicationInsightsResourceId: monitoring.outputs.applicationInsightsResourceId
+    keyVaultName: keyVault.outputs.name
+    appServicePlanSku: appServicePlanSku
+    appServiceName: !empty(appServiceName) ? appServiceName : ''
+    additionalAppSettings: {
+      AZURE_COSMOS_ENDPOINT: cosmos.outputs.endpoint
+      AZURE_COSMOS_DATABASE_NAME: cosmos.outputs.databaseName
+      API_ALLOW_ORIGINS: 'https://${staticWebApp.outputs.defaultHostname}'
+    }
+    allowedOrigins: []
+  }
+}
+
+// Cosmos DB Built-in Data Contributor for API managed identity
+module apiCosmosRole './app/cosmos-role-assignment.bicep' = {
   name: 'api-cosmos-role'
   scope: rg
   params: {
     cosmosAccountName: cosmos.outputs.accountName
-    apiPrincipalId: api.outputs.SERVICE_API_IDENTITY_PRINCIPAL_ID
+    apiPrincipalId: appService.outputs.principalId
   }
 }
 
-
-// Create an App Service Plan to group applications under the same payment plan and SKU
-module appServicePlan 'br/public:avm/res/web/serverfarm:0.1.1' = {
-  name: 'appserviceplan'
+// Azure Cache for Redis
+module redis './modules/redis.bicep' = {
+  name: 'redis'
   scope: rg
   params: {
-    name: !empty(appServicePlanName) ? appServicePlanName : '${abbrs.webServerFarms}${resourceToken}'
-    sku: {
-      name: 'B3'
-      tier: 'Basic'
-    }
+    environmentName: environmentName
     location: location
     tags: tags
-    reserved: true
-    kind: 'Linux'
+    sku: redisSku
+    capacity: redisSku == 'Basic' ? 0 : 1
+    redisName: !empty(redisName) ? redisName : ''
   }
 }
 
-// Create a keyvault to store secrets
-module keyVault 'br/public:avm/res/key-vault/vault:0.5.1' = {
-  name: 'keyvault'
+// RBAC: Key Vault Secrets User for API, Secrets Officer for deployment principal
+module rbac './modules/rbac.bicep' = {
+  name: 'rbac'
   scope: rg
   params: {
-    name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
+    appServicePrincipalId: appService.outputs.principalId
+    deploymentPrincipalId: principalId
+    keyVaultName: keyVault.outputs.name
+  }
+}
+
+// Optional APIM
+module apim './modules/apim.bicep' = if (useAPIM) {
+  name: 'apim'
+  scope: rg
+  params: {
+    environmentName: environmentName
     location: location
     tags: tags
-    enableRbacAuthorization: false
-    enableVaultForDeployment: false
-    enableVaultForTemplateDeployment: false
-    enablePurgeProtection: false
-    sku: 'standard'
+    apimSku: apimSku
+    apimServiceName: !empty(apimServiceName) ? apimServiceName : ''
   }
 }
 
-// Monitor application with Azure Monitor
-module monitoring 'br/public:avm/ptn/azd/monitoring:0.1.0' = {
-  name: 'monitoring'
-  scope: rg
-  params: {
-    applicationInsightsName: !empty(applicationInsightsName) ? applicationInsightsName : '${abbrs.insightsComponents}${resourceToken}'
-    logAnalyticsName: !empty(logAnalyticsName) ? logAnalyticsName : '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
-    applicationInsightsDashboardName: !empty(applicationInsightsDashboardName) ? applicationInsightsDashboardName : '${abbrs.portalDashboards}${resourceToken}'
-    location: location
-    tags: tags
-  }
-}
-
-// Creates Azure API Management (APIM) service to mediate the requests between the frontend and the backend API
-module apim 'br/public:avm/res/api-management/service:0.2.0' = if (useAPIM) {
-  name: 'apim-deployment'
-  scope: rg
-  params: {
-    name: !empty(apimServiceName) ? apimServiceName : '${abbrs.apiManagementService}${resourceToken}'
-    publisherEmail: 'noreply@microsoft.com'
-    publisherName: 'n/a'
-    location: location
-    tags: tags
-    sku: apimSku
-    skuCount: 0
-    zones: []
-    customProperties: {}
-    loggers: [
-      {
-        name: 'app-insights-logger'
-        credentials: {
-          instrumentationKey: monitoring.outputs.applicationInsightsInstrumentationKey
-        }
-        loggerDescription: 'Logger to Azure Application Insights'
-        isBuffered: false
-        loggerType: 'applicationInsights'
-        targetResourceId: monitoring.outputs.applicationInsightsResourceId
-      }
-    ]
-  }
-}
-
-//Configures the API settings for an api app within the Azure API Management (APIM) service.
-module apimApi 'br/public:avm/ptn/azd/apim-api:0.1.0' = if (useAPIM) {
-  name: 'apim-api-deployment'
-  scope: rg
-  params: {
-    apiBackendUrl: api.outputs.SERVICE_API_URI
-    apiDescription: 'Backend API'
-    apiDisplayName: 'Backend API'
-    apiName: 'api'
-    apiPath: 'api'
-    name: useAPIM ? useAPIM ? apim.outputs.name : '' : ''
-    webFrontendUrl: web.outputs.SERVICE_WEB_URI
-    location: location
-    apiAppName: api.outputs.SERVICE_API_NAME
-  }
-}
-
-// Data outputs
+// Outputs for azd and application configuration
 output AZURE_COSMOS_ENDPOINT string = cosmos.outputs.endpoint
 output AZURE_COSMOS_DATABASE_NAME string = cosmos.outputs.databaseName
-
-// App outputs
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = monitoring.outputs.applicationInsightsConnectionString
 output AZURE_KEY_VAULT_ENDPOINT string = keyVault.outputs.uri
 output AZURE_KEY_VAULT_NAME string = keyVault.outputs.name
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
-output API_BASE_URL string = useAPIM ? apimApi.outputs.serviceApiUri : api.outputs.SERVICE_API_URI
-output REACT_APP_WEB_BASE_URL string = web.outputs.SERVICE_WEB_URI
+output API_BASE_URL string = useAPIM ? apim!.outputs.gatewayUrl : 'https://${appService.outputs.defaultHostname}'
+output REACT_APP_WEB_BASE_URL string = 'https://${staticWebApp.outputs.defaultHostname}'
 output USE_APIM bool = useAPIM
-output SERVICE_API_ENDPOINTS array = useAPIM ? [ apimApi.outputs.serviceApiUri, api.outputs.SERVICE_API_URI ]: []
+output SERVICE_API_ENDPOINTS array = useAPIM ? [ apim!.outputs.gatewayUrl, 'https://${appService.outputs.defaultHostname}' ] : []
+output REDIS_HOST string = redis.outputs.hostName
+output REDIS_PORT int = redis.outputs.sslPort

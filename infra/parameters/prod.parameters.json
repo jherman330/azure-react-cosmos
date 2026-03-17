@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": { "value": "prod" },
+    "location": { "value": "${AZURE_LOCATION}" },
+    "principalId": { "value": "${AZURE_PRINCIPAL_ID}" },
+    "useAPIM": { "value": true },
+    "apimSku": { "value": "Consumption" },
+    "appServicePlanSku": { "value": { "name": "P1v2", "tier": "PremiumV2", "capacity": 1 } },
+    "redisSku": { "value": "Standard" }
+  }
+}

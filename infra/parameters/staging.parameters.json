@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environmentName": { "value": "staging" },
+    "location": { "value": "${AZURE_LOCATION}" },
+    "principalId": { "value": "${AZURE_PRINCIPAL_ID}" },
+    "useAPIM": { "value": false },
+    "apimSku": { "value": "Developer" },
+    "appServicePlanSku": { "value": { "name": "S1", "tier": "Standard", "capacity": 1 } },
+    "redisSku": { "value": "Standard" }
+  }
+}
