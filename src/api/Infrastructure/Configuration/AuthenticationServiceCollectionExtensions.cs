@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Todo.Api.Infrastructure;
 
 namespace Todo.Api.Infrastructure.Configuration;
 
@@ -53,26 +54,22 @@ public static class AuthenticationServiceCollectionExtensions
                         context.HandleResponse();
                         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                         context.Response.ContentType = "application/json";
-                        var traceId = context.HttpContext.TraceIdentifier;
-                        var body = JsonSerializer.Serialize(new
-                        {
-                            traceId,
-                            errorCode = "UNAUTHORIZED",
-                            message = "Authentication required. Provide a valid JWT bearer token."
-                        });
+                        var envelope = new ApiErrorEnvelope(
+                            context.HttpContext.TraceIdentifier,
+                            ErrorCodes.Unauthorized,
+                            "Authentication required. Provide a valid JWT bearer token.");
+                        var body = JsonSerializer.Serialize(envelope);
                         return context.Response.WriteAsync(body);
                     },
                     OnForbidden = context =>
                     {
                         context.Response.StatusCode = StatusCodes.Status403Forbidden;
                         context.Response.ContentType = "application/json";
-                        var traceId = context.HttpContext.TraceIdentifier;
-                        var body = JsonSerializer.Serialize(new
-                        {
-                            traceId,
-                            errorCode = "FORBIDDEN",
-                            message = "Insufficient permissions to access this resource."
-                        });
+                        var envelope = new ApiErrorEnvelope(
+                            context.HttpContext.TraceIdentifier,
+                            ErrorCodes.Forbidden,
+                            "Insufficient permissions to access this resource.");
+                        var body = JsonSerializer.Serialize(envelope);
                         return context.Response.WriteAsync(body);
                     },
                 };

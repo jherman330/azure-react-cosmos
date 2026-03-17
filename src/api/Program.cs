@@ -67,6 +67,9 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
+// AC-FOUNDATION-007: Global exception handling — standardized error envelope (traceId, errorCode, message)
+app.UseGlobalExceptionHandling();
+
 app.UseCors(policy =>
 {
     policy.AllowAnyOrigin();
