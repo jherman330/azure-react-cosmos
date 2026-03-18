@@ -114,6 +114,12 @@ This template creates a [managed identity](https://docs.microsoft.com/azure/acti
 
 This template uses [Azure Key Vault](https://docs.microsoft.com/azure/key-vault/general/overview) for secrets in deployed environments. The API uses **managed identity** to read secrets from Key Vault at runtime (no connection strings or keys in app settings or code). For **local development**, use [dotnet user-secrets](https://learn.microsoft.com/aspnet/core/security/app-secrets) so sensitive values stay off the repo. No secrets are stored in `appsettings.json` or committed to source control. See [docs/secrets-management.md](docs/secrets-management.md) for patterns, user-secrets usage, and Key Vault soft-delete/purge-protection recommendations.
 
+### Web app: Microsoft Entra (MSAL)
+
+Without **`VITE_MSAL_CLIENT_ID`**, the web app runs in **local development mode only**: no Entra sign-in, **no tokens**, **no `Authorization` headers** on API calls, and the UI shows **AUTH DISABLED** so this is not mistaken for real authentication. Set `VITE_MSAL_CLIENT_ID` (and scopes as needed) for real sign-in.
+
+Details: [docs/auth-msal.md](docs/auth-msal.md) · `src/web/.env.example`.
+
 ## Reporting Issues and Feedback
 
 If you have any feature requests, issues, or areas for improvement, please [file an issue](https://aka.ms/azure-dev/issues). To keep up-to-date, ask questions, or share suggestions, join our [GitHub Discussions](https://aka.ms/azure-dev/discussions). You may also contact us via AzDevTeam@microsoft.com.

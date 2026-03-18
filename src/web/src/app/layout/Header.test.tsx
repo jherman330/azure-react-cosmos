@@ -15,21 +15,31 @@ describe('Header', () => {
 
   it('renders Settings and Help icon buttons', () => {
     renderWithProviders(<Header />);
-    const buttons = screen.getAllByRole('button', { name: /Add/i });
-    expect(buttons.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole('button', { name: /Settings/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Help/i })).toBeInTheDocument();
   });
 
   it('icon buttons can be clicked', async () => {
     const user = userEvent.setup();
     renderWithProviders(<Header />);
-    const buttons = screen.getAllByRole('button', { name: /Add/i });
+    const buttons = [
+      screen.getByRole('button', { name: /Settings/i }),
+      screen.getByRole('button', { name: /Help/i }),
+    ];
     await user.click(buttons[0]);
     expect(buttons[0]).toBeInTheDocument();
   });
 
-  it('renders Sample User persona text', () => {
+  it('renders Local Dev User and auth-disabled label when MSAL is off', () => {
     renderWithProviders(<Header />);
-    const matches = screen.getAllByText('Sample User');
-    expect(matches.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Local Dev User').length).toBeGreaterThanOrEqual(
+      1
+    );
+    expect(screen.getAllByText('Auth disabled').length).toBeGreaterThanOrEqual(
+      1
+    );
+    expect(screen.getByTitle('MSAL is not configured')).toHaveTextContent(
+      'AUTH DISABLED'
+    );
   });
 });
