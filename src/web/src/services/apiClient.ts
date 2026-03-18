@@ -1,10 +1,13 @@
 /**
- * Centralized API client for all backend HTTP communication.
- * Use this instead of raw fetch/axios in components. Feature-specific services
- * should use this client or instances created with attachBearerTokenInterceptor.
+ * Centralized API client for all backend HTTP communication (REQ-FOUNDATION-016).
+ * Feature services use this client; components must not call raw fetch/axios.
  */
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
+import axios, {
+  AxiosInstance,
+  InternalAxiosRequestConfig,
+} from 'axios';
 import config from '../config';
+import { mapAxiosError } from './apiErrors';
 
 export interface QueryOptions {
   top?: number;
@@ -17,9 +20,19 @@ export interface Entity {
   updated?: Date;
 }
 
+export const CORRELATION_HEADER = 'X-Correlation-ID';
+
 type TokenGetter = () => Promise<string | null>;
 
 let tokenGetter: TokenGetter = async () => null;
+
+/** Optional: use a stable correlation id per user action (e.g. from telemetry). Default: new UUID per request. */
+export type CorrelationIdProvider = () => string;
+let correlationIdProvider: CorrelationIdProvider | null = null;
+
+export function setCorrelationIdProvider(provider: CorrelationIdProvider | null): void {
+  correlationIdProvider = provider;
+}
 
 /**
  * Registered from AuthTokenBridge when MSAL is active.
@@ -32,10 +45,13 @@ export function resetApiTokenGetter(): void {
   tokenGetter = async () => null;
 }
 
+type ConfigWithCorrelation = InternalAxiosRequestConfig & {
+  _correlationId?: string;
+};
+
 export function attachBearerTokenInterceptor(instance: AxiosInstance): void {
   instance.interceptors.request.use(
     async (cfg: InternalAxiosRequestConfig) => {
-      /* Local dev (no VITE_MSAL_CLIENT_ID): never attach Authorization; no MSAL, no tokens. */
       if (!config.auth.isEnabled) {
         return cfg;
       }
@@ -45,7 +61,7 @@ export function attachBearerTokenInterceptor(instance: AxiosInstance): void {
           cfg.headers.Authorization = `Bearer ${token}`;
         }
       } catch {
-        /* non-fatal: proceed without token */
+        /* non-fatal */
       }
       return cfg;
     },
@@ -53,31 +69,76 @@ export function attachBearerTokenInterceptor(instance: AxiosInstance): void {
   );
 }
 
-function createApiClient(): AxiosInstance {
+function attachCorrelationInterceptor(instance: AxiosInstance): void {
+  instance.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
+    const c = cfg as ConfigWithCorrelation;
+    const id = correlationIdProvider?.() ?? crypto.randomUUID();
+    c.headers.set(CORRELATION_HEADER, id);
+    c._correlationId = id;
+    return c;
+  });
+}
+
+const MUTATING = new Set(['post', 'put', 'patch', 'delete']);
+
+function attachIdempotencyInterceptor(instance: AxiosInstance): void {
+  instance.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
+    const key = cfg.idempotencyKey;
+    if (
+      key &&
+      cfg.method &&
+      MUTATING.has(cfg.method.toLowerCase())
+    ) {
+      cfg.headers.set('Idempotency-Key', key);
+    }
+    return cfg;
+  });
+}
+
+function attachErrorResponseInterceptor(instance: AxiosInstance): void {
+  instance.interceptors.response.use(
+    (res) => res,
+    (err) => {
+      if (axios.isAxiosError(err)) {
+        return Promise.reject(mapAxiosError(err));
+      }
+      return Promise.reject(err);
+    }
+  );
+}
+
+/**
+ * Applies correlation, Bearer (MSAL), idempotency headers, and normalized errors to an instance.
+ */
+export function applyStandardApiInterceptors(instance: AxiosInstance): void {
+  attachCorrelationInterceptor(instance);
+  attachBearerTokenInterceptor(instance);
+  attachIdempotencyInterceptor(instance);
+  attachErrorResponseInterceptor(instance);
+}
+
+export function createApiInstance(overrides?: { baseURL?: string }): AxiosInstance {
   const instance = axios.create({
-    baseURL: config.api.baseUrl,
+    baseURL: overrides?.baseURL ?? config.api.baseUrl,
     headers: {
       'Content-Type': 'application/json',
     },
   });
-  attachBearerTokenInterceptor(instance);
+  applyStandardApiInterceptors(instance);
   return instance;
 }
 
-export const apiClient = createApiClient();
+export const apiClient = createApiInstance();
 
 /**
- * Generic REST service aligned with the existing RestService pattern.
+ * Generic REST helper for resource-oriented routes. Prefer feature services + {@link apiClient} for new code.
  */
 export abstract class RestService<T extends Entity> {
   protected client: AxiosInstance;
 
   public constructor(baseRoute: string) {
-    this.client = axios.create({
-      baseURL: `${config.api.baseUrl}${baseRoute}`,
-      headers: { 'Content-Type': 'application/json' },
-    });
-    attachBearerTokenInterceptor(this.client);
+    const base = `${config.api.baseUrl.replace(/\/$/, '')}/${baseRoute.replace(/^\//, '')}`;
+    this.client = createApiInstance({ baseURL: base });
   }
 
   public async getList(queryOptions?: QueryOptions): Promise<T[]> {

@@ -4,7 +4,7 @@ All HTTP communication and external integrations go through this layer. **Compon
 
 ## Responsibilities
 
-- **API client** — `apiClient.ts` provides the centralized HTTP client (base URL, headers, Bearer token). The `RestService` base class is optional for entity-style CRUD; prefer thin service functions + hooks (see `docs/tanstack-query.md`).
+- **API client** — `apiClient.ts`: base URL, MSAL Bearer, `X-Correlation-ID`, `Idempotency-Key`, normalized `ApiError` (`apiErrors.ts`). See **docs/api-client.md**. `RestService` is optional for entity CRUD; prefer typed service objects + hooks.
 - **Feature services** — Small modules (e.g. `itemsService.ts`, `sandboxService.ts`) used by query/mutation hooks.
 - **External integrations** — Telemetry and other third-party calls live here or in dedicated modules.
 

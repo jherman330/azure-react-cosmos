@@ -1,5 +1,5 @@
 /**
- * Items service for list/get operations. Used by components; mock this module in tests (AC-FOUNDATION-017.6).
+ * Items service — typed contract for items API (REQ-FOUNDATION-016).
  */
 import { apiClient } from './apiClient';
 
@@ -11,8 +11,13 @@ export interface ItemDto {
 
 const ROUTE = '/items';
 
-export const itemsService = {
-  async getList(): Promise<ItemDto[]> {
+/** Service interface: add methods here as the API grows. */
+export interface ItemsListService {
+  getList(): Promise<ItemDto[]>;
+}
+
+export const itemsService: ItemsListService = {
+  async getList() {
     const { data } = await apiClient.get<ItemDto[]>(ROUTE);
     return data ?? [];
   },

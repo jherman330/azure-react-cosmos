@@ -34,7 +34,7 @@ Also set **`VITE_API_BASE_URL`** for the backend (see main README).
 1. **MsalProvider** wraps the app after `PublicClientApplication.initialize()`.
 2. **Protected routes** (`/`, etc.) redirect unauthenticated users to **`/login`**.
 3. **Login** uses `loginRedirect` with scopes: `openid`, `profile`, `offline_access`, plus any `VITE_MSAL_API_SCOPES`.
-4. **API client** (`apiClient` and `RestService` axios instances) attach a Bearer token via `acquireTokenSilent`, or `acquireTokenRedirect` if interaction is required.
+4. **API client** (`apiClient` and `RestService` axios instances) attach a Bearer token via `acquireTokenSilent`, or `acquireTokenRedirect` if interaction is required. Correlation and error mapping: [api-client.md](./api-client.md).
 5. **Sign out** uses `logoutRedirect`.
 
 ## Entra app registration checklist
