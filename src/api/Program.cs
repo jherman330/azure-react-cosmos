@@ -24,6 +24,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Todo.Api.Infrastructure.Configuration;
 using Todo.Api.Infrastructure.Cors;
 using Todo.Api.Infrastructure.HealthChecks;
+using Todo.Api.Infrastructure.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -52,6 +53,9 @@ builder.Services.AddScoped<Todo.Api.Application.Services.ICurrentUserService, To
 
 // AC-FOUNDATION-010.1–010.4, 010.7: IDistributedCache (in-memory in Development, Redis in staging/prod) with 2s timeout and graceful degradation
 builder.Services.AddDistributedCache(builder.Configuration, builder.Environment);
+
+// AC-FOUNDATION-005: rate limiting — single path: DistributedRateLimitingMiddleware (Redis or IDistributedCache)
+builder.Services.AddDistributedRateLimiting(builder.Configuration);
 
 // AC-FOUNDATION-011: HTTP resilience (retry, circuit breaker, timeout) for outbound calls. Config: Resilience:Http.
 builder.Services.AddHttpResilience(builder.Configuration);
@@ -88,6 +92,8 @@ app.UseCors();
 // AC-FOUNDATION-003: Authentication and authorization middleware (JWT validation, role checks)
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<DistributedRateLimitingMiddleware>();
 
 // Swagger UI
 app.UseSwaggerUI(options => {

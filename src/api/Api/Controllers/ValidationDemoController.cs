@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Todo.Api.Application.Transport;
 using Todo.Api.Infrastructure;
+using Todo.Api.Infrastructure.RateLimiting;
 
 namespace Todo.Api.Api.Controllers;
 
@@ -10,10 +11,12 @@ namespace Todo.Api.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/v1/sandbox")]
+[RateLimitPolicy(RateLimitTier.Read)]
 public sealed class ValidationDemoController : ControllerBase
 {
     /// <summary>Returns the message when validation passes.</summary>
     [HttpPost("validate")]
+    [RateLimitPolicy(RateLimitTier.Write)]
     [AllowAnonymous]
     [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiValidationErrorEnvelope), StatusCodes.Status400BadRequest)]

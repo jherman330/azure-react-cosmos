@@ -30,7 +30,7 @@ Keys are separated by namespace to avoid collisions between application cache an
 | Prefix | Use |
 |--------|-----|
 | `cache:` | Application data (e.g. `cache:product:123`, `cache:search:abc`) |
-| `ratelimit:` | Rate limiting counters (see API Server blueprint) |
+| `rl:sw:` (and related) | Rate limiting — enforced only by <code>DistributedRateLimitingMiddleware</code> (REQ-FOUNDATION-005); not via ASP.NET Core <code>UseRateLimiter</code>. |
 
 Use the constants in `Todo.Api.Infrastructure.Caching.CacheKeyNamespaces` when building keys. Keys are case-sensitive; use lowercase with colon separators.
 
