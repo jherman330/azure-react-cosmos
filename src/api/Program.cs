@@ -20,6 +20,7 @@ using Azure.Identity;
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using Todo.Api.Domain.Entities;
 using Todo.Api.Infrastructure.Configuration;
+using Todo.Api.Infrastructure.Cors;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,21 +65,20 @@ if (!string.IsNullOrEmpty(builder.Configuration["AZURE_COSMOS_ENDPOINT"]))
 // AC-FOUNDATION-008: FluentValidation — DI, auto-validation before controllers, 400 envelope with field errors
 builder.Services.AddFluentValidationPipeline();
 
-builder.Services.AddCors();
+// AC-FOUNDATION-006: CORS — default policy from config (resolved when first needed)
+builder.Services.AddConfiguredCors();
 builder.Services.AddApplicationInsightsTelemetry(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
+CorsPolicySettings.Resolve(app.Configuration, app.Environment)
+    .LogStartupIssues(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Cors"));
+
 // AC-FOUNDATION-007: Global exception handling — standardized error envelope (traceId, errorCode, message)
 app.UseGlobalExceptionHandling();
 
-app.UseCors(policy =>
-{
-    policy.AllowAnyOrigin();
-    policy.AllowAnyHeader();
-    policy.AllowAnyMethod();
-});
+app.UseCors();
 
 // AC-FOUNDATION-003: Authentication and authorization middleware (JWT validation, role checks)
 app.UseAuthentication();
