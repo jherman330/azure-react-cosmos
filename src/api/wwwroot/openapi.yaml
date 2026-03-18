@@ -21,3 +21,21 @@ paths:
       responses:
         200:
           description: OK
+  /health/live:
+    get:
+      operationId: GetHealthLive
+      summary: Liveness probe (no external dependencies)
+      responses:
+        200:
+          description: Healthy
+        503:
+          description: Unhealthy
+  /health/ready:
+    get:
+      operationId: GetHealthReady
+      summary: Readiness probe (Cosmos DB and Redis when configured)
+      responses:
+        200:
+          description: All dependencies healthy
+        503:
+          description: One or more dependencies unhealthy

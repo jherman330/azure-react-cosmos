@@ -38,23 +38,23 @@ public static class CacheServiceCollectionExtensions
         if (useRedis)
         {
             var timeoutMs = (int)DefaultOperationTimeout.TotalMilliseconds;
-            services.AddOptions<RedisCacheOptions>()
-                .Configure<IConfiguration>((opts, config) =>
-                {
-                    var conn = config[RedisConnectionKey];
-                    opts.Configuration = conn;
-                    // Apply timeouts at the Redis client level where supported (defense in depth).
-                    var redisOpts = string.IsNullOrEmpty(conn)
-                        ? new ConfigurationOptions()
-                        : ConfigurationOptions.Parse(conn);
-                    redisOpts.AbortOnConnectFail = false;
-                    redisOpts.ConnectTimeout = timeoutMs;
-                    redisOpts.SyncTimeout = timeoutMs;
-                    opts.ConfigurationOptions = redisOpts;
-                });
+            // Single multiplexer for Redis cache and readiness health checks (AC-FOUNDATION-004.3).
+            services.AddSingleton<IConnectionMultiplexer>(_ =>
+            {
+                var conn = configuration[RedisConnectionKey]!;
+                var redisOpts = ConfigurationOptions.Parse(conn);
+                redisOpts.AbortOnConnectFail = false;
+                redisOpts.ConnectTimeout = timeoutMs;
+                redisOpts.SyncTimeout = timeoutMs;
+                return ConnectionMultiplexer.Connect(redisOpts);
+            });
             services.AddKeyedSingleton<IDistributedCache>("InnerDistributedCache", (sp, _) =>
             {
-                var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RedisCacheOptions>>();
+                var mux = sp.GetRequiredService<IConnectionMultiplexer>();
+                var options = Microsoft.Extensions.Options.Options.Create(new RedisCacheOptions
+                {
+                    ConnectionMultiplexerFactory = () => Task.FromResult(mux),
+                });
                 return new RedisCache(options);
             });
         }

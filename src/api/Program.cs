@@ -19,8 +19,11 @@
 using Azure.Identity;
 using Azure.Extensions.AspNetCore.Configuration.Secrets;
 using Todo.Api.Domain.Entities;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Todo.Api.Infrastructure.Configuration;
 using Todo.Api.Infrastructure.Cors;
+using Todo.Api.Infrastructure.HealthChecks;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -67,6 +70,8 @@ builder.Services.AddFluentValidationPipeline();
 
 // AC-FOUNDATION-006: CORS — default policy from config (resolved when first needed)
 builder.Services.AddConfiguredCors();
+// AC-FOUNDATION-004: liveness/readiness with optional Cosmos + Redis dependency checks
+builder.Services.AddApplicationHealthChecks(builder.Configuration, builder.Environment);
 builder.Services.AddApplicationInsightsTelemetry(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -95,10 +100,26 @@ app.UseStaticFiles(new StaticFileOptions{
     ServeUnknownFileTypes = true,
 });
 
-// AC-FOUNDATION-003.8: Health and root ping remain unauthenticated for orchestrator/monitoring and simple uptime checks
+// AC-FOUNDATION-003.8, 004.7: Health endpoints unauthenticated
 app.MapGet("/health", () => Results.Ok()).AllowAnonymous();
-app.MapGet("/health/live", () => Results.Ok()).AllowAnonymous();
-app.MapGet("/health/ready", () => Results.Ok()).AllowAnonymous();
+var healthStatusMap = new Dictionary<HealthStatus, int>
+{
+    [HealthStatus.Healthy] = StatusCodes.Status200OK,
+    [HealthStatus.Degraded] = StatusCodes.Status503ServiceUnavailable,
+    [HealthStatus.Unhealthy] = StatusCodes.Status503ServiceUnavailable,
+};
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains(ApplicationHealthTags.Live),
+    ResponseWriter = HealthReportJsonWriter.WriteLivenessAsync,
+    ResultStatusCodes = healthStatusMap,
+}).AllowAnonymous();
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = r => r.Tags.Contains(ApplicationHealthTags.Ready),
+    ResponseWriter = HealthReportJsonWriter.WriteReadinessAsync,
+    ResultStatusCodes = healthStatusMap,
+}).AllowAnonymous();
 app.MapGet("/", () => Results.Ok("OK")).AllowAnonymous();
 
 app.MapControllers();
