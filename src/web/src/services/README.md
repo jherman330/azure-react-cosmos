@@ -1,17 +1,17 @@
 # Services
 
-All HTTP communication and external integrations go through this layer. Components should not perform raw API calls; they use these services instead.
+All HTTP communication and external integrations go through this layer. **Components should use TanStack Query hooks** (`src/web/src/hooks/`) that call these services in `queryFn` / `mutationFn`, not invoke services directly from `useEffect` for server state.
 
 ## Responsibilities
 
-- **API client** — `apiClient.ts` provides the centralized HTTP client (base URL, headers, error handling). Use it or extend `RestService` for entity-based resources.
-- **Feature services** — Add feature-specific service modules here (e.g. `productService.ts`) that use the API client to talk to backend endpoints.
-- **External integrations** — Telemetry, analytics, and other third-party calls are also encapsulated here or in dedicated modules.
+- **API client** — `apiClient.ts` provides the centralized HTTP client (base URL, headers, Bearer token). The `RestService` base class is optional for entity-style CRUD; prefer thin service functions + hooks (see `docs/tanstack-query.md`).
+- **Feature services** — Small modules (e.g. `itemsService.ts`, `sandboxService.ts`) used by query/mutation hooks.
+- **External integrations** — Telemetry and other third-party calls live here or in dedicated modules.
 
 ## Usage
 
-- Import `apiClient` or a concrete service in your feature or component.
-- Do not import `axios` or `fetch` directly in components; go through a service.
-- Token attachment (e.g. MSAL) will be wired in the API client when authentication is added.
+- New reads: add `queryKey` + `useXxxQuery` hook calling a service function.
+- New writes: add service function + `useXxxMutation` hook.
+- Do not import `axios` or `fetch` directly in components.
 
-See the Client blueprint for API integration standards.
+See **docs/tanstack-query.md** and the Client blueprint.

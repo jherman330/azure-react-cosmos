@@ -6,6 +6,7 @@ import Telemetry from '../../components/shared/Telemetry';
 import config from '../../config';
 import MsalAppProvider from '../../auth/MsalAppProvider';
 import AuthTokenBridge from '../../auth/AuthTokenBridge';
+import AppQueryProvider from '../../query/AppQueryProvider';
 
 const AppProviders: FC<PropsWithChildren<unknown>> = ({ children }) => {
   const routerTree = (
@@ -17,11 +18,13 @@ const AppProviders: FC<PropsWithChildren<unknown>> = ({ children }) => {
 
   return (
     <ThemeProvider applyTo="body" theme={DarkTheme}>
-      {config.auth.isEnabled ? (
-        <MsalAppProvider>{routerTree}</MsalAppProvider>
-      ) : (
-        routerTree
-      )}
+      <AppQueryProvider>
+        {config.auth.isEnabled ? (
+          <MsalAppProvider>{routerTree}</MsalAppProvider>
+        ) : (
+          routerTree
+        )}
+      </AppQueryProvider>
     </ThemeProvider>
   );
 };

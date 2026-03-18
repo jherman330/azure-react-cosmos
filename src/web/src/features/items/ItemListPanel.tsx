@@ -1,38 +1,11 @@
-import { FC, useEffect, useState } from 'react';
+import { FC } from 'react';
 import { Spinner, Stack, Text } from '@fluentui/react';
-import { itemsService, ItemDto } from '../../services/itemsService';
-
-type Status = 'idle' | 'loading' | 'success' | 'error';
+import { useItemsQuery } from '../../hooks/useItemsQuery';
 
 const ItemListPanel: FC = () => {
-  const [status, setStatus] = useState<Status>('idle');
-  const [items, setItems] = useState<ItemDto[]>([]);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { data: items = [], isPending, isError, error } = useItemsQuery();
 
-  useEffect(() => {
-    let cancelled = false;
-    setStatus('loading');
-    setErrorMessage(null);
-    itemsService
-      .getList()
-      .then((data) => {
-        if (!cancelled) {
-          setItems(data ?? []);
-          setStatus('success');
-        }
-      })
-      .catch((err: Error) => {
-        if (!cancelled) {
-          setErrorMessage(err.message ?? 'Failed to load');
-          setStatus('error');
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (status === 'loading') {
+  if (isPending) {
     return (
       <Stack tokens={{ childrenGap: 8 }}>
         <Spinner label="Loading items..." />
@@ -40,17 +13,18 @@ const ItemListPanel: FC = () => {
     );
   }
 
-  if (status === 'error') {
+  if (isError) {
+    const message = error instanceof Error ? error.message : 'Failed to load';
     return (
       <Stack tokens={{ childrenGap: 8 }}>
         <Text variant="large" styles={{ root: { color: 'var(--errorText)' } }}>
-          Error: {errorMessage}
+          Error: {message}
         </Text>
       </Stack>
     );
   }
 
-  if (status === 'success' && items.length === 0) {
+  if (items.length === 0) {
     return (
       <Stack tokens={{ childrenGap: 8 }}>
         <Text variant="medium">No items found.</Text>
