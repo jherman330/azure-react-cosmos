@@ -11,6 +11,8 @@ public static class ErrorCodes
 
     // Client errors
     public const string BadRequest = "BAD_REQUEST";
+    /// <summary>Transport/input validation failed (FluentValidation, HTTP 400).</summary>
+    public const string ValidationFailed = "VALIDATION_FAILED";
     public const string NotFound = "NOT_FOUND";
     public const string Conflict = "CONFLICT";
     public const string PreconditionFailed = "PRECONDITION_FAILED";

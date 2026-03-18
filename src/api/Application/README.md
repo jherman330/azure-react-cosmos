@@ -7,7 +7,7 @@ The Application layer orchestrates use cases. It coordinates between the API and
 ## Responsibilities
 
 - **Use case orchestration** — Coordinate domain logic and infrastructure to fulfill a request.
-- **Validation** — Validate input and enforce application-level rules (e.g. with FluentValidation when used).
+- **Validation** — Transport/input validation with **FluentValidation**: validators in `Application.Validation` (subclass `TransportValidatorBase<T>`), registered by assembly scan. See [validation-layers.md](../../docs/validation-layers.md).
 - **Application interfaces** — Define service contracts and abstractions consumed by the API layer.
 - **Transaction boundaries** — Define where units of work begin and end, when applicable.
 

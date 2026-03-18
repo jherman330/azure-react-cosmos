@@ -3,7 +3,7 @@ using Todo.Api.Domain.Entities;
 namespace Todo.Api.Application.Validation;
 
 /// <summary>
-/// Validates Item entity for application-level rules. Used for example unit testing (AC-FOUNDATION-012.7).
+/// Validates <see cref="Item"/> outside the FluentValidation HTTP pipeline. Not scanned for DI/controller validation—do not replace with <c>AbstractValidator&lt;Item&gt;</c> for transport.
 /// </summary>
 public sealed class ItemValidator
 {

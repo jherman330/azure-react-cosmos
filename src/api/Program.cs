@@ -61,6 +61,9 @@ if (!string.IsNullOrEmpty(builder.Configuration["AZURE_COSMOS_ENDPOINT"]))
     var container = builder.Configuration["AZURE_COSMOS_CONTAINER_NAME"] ?? "Items";
     builder.Services.AddCosmosDbRepository<Item>(db, container, partitionKeyPath: "/id");
 }
+// AC-FOUNDATION-008: FluentValidation — DI, auto-validation before controllers, 400 envelope with field errors
+builder.Services.AddFluentValidationPipeline();
+
 builder.Services.AddCors();
 builder.Services.AddApplicationInsightsTelemetry(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
@@ -97,6 +100,8 @@ app.MapGet("/health", () => Results.Ok()).AllowAnonymous();
 app.MapGet("/health/live", () => Results.Ok()).AllowAnonymous();
 app.MapGet("/health/ready", () => Results.Ok()).AllowAnonymous();
 app.MapGet("/", () => Results.Ok("OK")).AllowAnonymous();
+
+app.MapControllers();
 
 // Protected API endpoints: add .RequireAuthorization() or .RequireAuthorization("Admin") when adding authenticated routes (AC-FOUNDATION-003.4, 003.5)
 
