@@ -1,23 +1,88 @@
+name: Azure Dev CI/CD
+
 on:
   workflow_dispatch:
   push:
-    # Run when commits are pushed to mainline branch (main or master)
-    # Set this to the mainline branch you are using
     branches:
       - main
-      - master
+  pull_request:
+    branches:
+      - main
 
-# GitHub Actions workflow to deploy to Azure using azd
-# To configure required secrets for connecting to Azure, simply run `azd pipeline config`
-
-# Set up permissions for deploying with secretless Azure federated credentials
-# https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#set-up-azure-login-with-openid-connect-authentication
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  build:
+  build-backend:
+    name: Build & Test Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore src/api/Todo.Api.sln
+
+      - name: Build
+        run: dotnet build src/api/Todo.Api.sln --no-restore -c Release
+
+      - name: Run tests
+        run: dotnet test src/api/Todo.Api.sln --no-build -c Release --verbosity normal
+
+  build-frontend:
+    name: Build & Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: src/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: src/web
+
+      - name: TypeScript type check
+        run: npm run typecheck
+        working-directory: src/web
+
+      - name: ESLint
+        run: npm run lint
+        working-directory: src/web
+
+      - name: Unit tests
+        run: npm run test
+        working-directory: src/web
+
+      - name: Build
+        run: npm run build
+        working-directory: src/web
+
+  validate-infrastructure:
+    name: Validate Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compile Bicep templates
+        run: az bicep build --file infra/main.bicep
+
+  deploy:
+    name: Provision & Deploy
+    if: github.event_name != 'pull_request'
+    needs: [build-backend, build-frontend, validate-infrastructure]
     runs-on: ubuntu-latest
     env:
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
@@ -29,49 +94,37 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Frontend tests
-        run: |
-          cd src/web
-          npm ci
-          npx vitest run
-
-      - name: Build and test
-        run: |
-          dotnet restore src/api/Todo.Api.sln
-          dotnet build src/api/Todo.Api.sln --no-restore -c Release
-          dotnet test src/api/Todo.Api.sln --no-build -c Release --verbosity normal
-
       - name: Install azd
         uses: Azure/setup-azd@v2
 
       - name: Log in with Azure (Federated Credentials)
         if: ${{ env.AZURE_CLIENT_ID != '' }}
         run: |
-          azd auth login `
-            --client-id "$Env:AZURE_CLIENT_ID" `
-            --federated-credential-provider "github" `
-            --tenant-id "$Env:AZURE_TENANT_ID"
-        shell: pwsh
+          azd auth login \
+            --client-id "$AZURE_CLIENT_ID" \
+            --federated-credential-provider "github" \
+            --tenant-id "$AZURE_TENANT_ID"
 
       - name: Log in with Azure (Client Credentials)
-        if: ${{ env.AZURE_CREDENTIALS != '' }}
+        if: ${{ env.AZURE_CLIENT_ID == '' }}
         run: |
-          $info = $Env:AZURE_CREDENTIALS | ConvertFrom-Json -AsHashtable;
-          Write-Host "::add-mask::$($info.clientSecret)"
-
-          azd auth login `
-            --client-id "$($info.clientId)" `
-            --client-secret "$($info.clientSecret)" `
-            --tenant-id "$($info.tenantId)"
-        shell: pwsh
+          echo "$AZURE_CREDENTIALS" > creds.json
+          CLIENT_ID=$(jq -r .clientId creds.json)
+          CLIENT_SECRET=$(jq -r .clientSecret creds.json)
+          TENANT_ID=$(jq -r .tenantId creds.json)
+          rm creds.json
+          echo "::add-mask::$CLIENT_SECRET"
+          azd auth login \
+            --client-id "$CLIENT_ID" \
+            --client-secret "$CLIENT_SECRET" \
+            --tenant-id "$TENANT_ID"
         env:
           AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # Temporarily disabled: validating PDLC + work orders + code generation, not cloud deploy yet.
-      # - name: Provision Infrastructure
-      #   run: azd provision --no-prompt
-      #   env:
-      #     AZD_INITIAL_ENVIRONMENT_CONFIG: ${{ secrets.AZD_INITIAL_ENVIRONMENT_CONFIG }}
+      - name: Provision Infrastructure
+        run: azd provision --no-prompt
+        env:
+          AZD_INITIAL_ENVIRONMENT_CONFIG: ${{ secrets.AZD_INITIAL_ENVIRONMENT_CONFIG }}
 
-      # - name: Deploy Application
-      #   run: azd deploy --no-prompt
+      - name: Deploy Application
+        run: azd deploy --no-prompt
