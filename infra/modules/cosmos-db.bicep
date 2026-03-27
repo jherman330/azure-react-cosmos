@@ -46,8 +46,12 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
     disableLocalAuth: true
     capabilities: [{ name: 'EnableServerless' }]
     backupPolicy: {
-      type: 'Continuous'
-      continuousModeProperties: { tier: 'Continuous30Days' }
+      type: 'Periodic'
+      periodicModeProperties: {
+        backupIntervalInMinutes: 240
+        backupRetentionIntervalInHours: 8
+        backupStorageRedundancy: 'Geo'
+      }
     }
     apiProperties: {}
   }
