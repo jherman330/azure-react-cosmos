@@ -75,7 +75,7 @@ module keyVault './modules/key-vault.bicep' = {
     location: location
     tags: tags
     keyVaultName: !empty(keyVaultName) ? keyVaultName : ''
-    enablePurgeProtection: false
+    enablePurgeProtection: true
   }
 }
 
