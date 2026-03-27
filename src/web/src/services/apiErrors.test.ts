@@ -14,8 +14,8 @@ describe('mapAxiosError', () => {
         statusText: 'Unauthorized',
         data: {},
         headers: {},
-        config: { headers: new axios.AxiosHeaders() } as any,
-      },
+        config: { headers: new axios.AxiosHeaders() },
+      } as unknown as AxiosError['response'],
       config: { _correlationId: 'req-1' } as unknown as AxiosError['config'],
       isAxiosError: true,
     });
@@ -47,8 +47,8 @@ describe('mapAxiosError', () => {
           errors: { name: ['Required'] },
         },
         headers: {},
-        config: { headers: new axios.AxiosHeaders() } as any,
-      },
+        config: { headers: new axios.AxiosHeaders() },
+      } as unknown as AxiosError['response'],
       config: {} as AxiosError['config'],
       isAxiosError: true,
     });
@@ -64,8 +64,8 @@ describe('mapAxiosError', () => {
         statusText: 'Not Found',
         data: { detail: 'Item gone' },
         headers: {},
-        config: { headers: new axios.AxiosHeaders() } as any,
-      },
+        config: { headers: new axios.AxiosHeaders() },
+      } as unknown as AxiosError['response'],
       config: {} as AxiosError['config'],
       isAxiosError: true,
     });
